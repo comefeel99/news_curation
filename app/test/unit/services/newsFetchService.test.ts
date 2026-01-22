@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { NewsFetchService } from '@/application/services/NewsFetchService'
 import { NewsRepository } from '@/infrastructure/repositories/NewsRepository'
-import { NewsApiClient, NewsApiArticle } from '@/infrastructure/api/NewsApiClient'
+import { SearchApiClient, SearchResultArticle } from '@/infrastructure/api/SearchApiClient'
 import { createNews } from '@/domain/entities/News'
+import { Category } from '@/domain/entities/Category'
 import { initializeDatabase, closeDatabase, getDatabase } from '@/infrastructure/database/sqlite'
 import fs from 'fs'
 import path from 'path'
@@ -12,28 +13,41 @@ const TEST_DB_PATH = path.join(__dirname, 'test-fetch.db')
 describe('NewsFetchService', () => {
     let service: NewsFetchService
     let repository: NewsRepository
-    let mockApiClient: {
-        fetchTechNews: ReturnType<typeof vi.fn>
+    let mockSearchClient: {
+        searchNews: ReturnType<typeof vi.fn>
+        searchTechNews: ReturnType<typeof vi.fn>
+        searchScienceNews: ReturnType<typeof vi.fn>
         parseArticle: ReturnType<typeof vi.fn>
+    }
+
+    const testCategory: Category = {
+        id: 'test-category',
+        name: '테스트',
+        searchQuery: '테스트 검색 쿼리',
+        isDefault: false,
+        createdAt: new Date(),
     }
 
     beforeEach(() => {
         initializeDatabase(TEST_DB_PATH)
         repository = new NewsRepository(getDatabase())
 
-        // Create mock API client
-        mockApiClient = {
-            fetchTechNews: vi.fn(),
-            parseArticle: vi.fn((article: NewsApiArticle) => ({
+        // Create mock Search API client
+        mockSearchClient = {
+            searchNews: vi.fn(),
+            searchTechNews: vi.fn(),
+            searchScienceNews: vi.fn(),
+            parseArticle: vi.fn((article: SearchResultArticle) => ({
                 title: article.title,
                 url: article.url,
-                source: article.source.name,
-                publishedAt: new Date(article.publishedAt),
-                imageUrl: article.urlToImage || undefined,
+                source: article.source,
+                publishedAt: new Date(),
+                summary: article.snippet || undefined,
+                imageUrl: article.imageUrl || undefined,
             })),
         }
 
-        service = new NewsFetchService(repository, mockApiClient as unknown as NewsApiClient)
+        service = new NewsFetchService(repository, mockSearchClient as unknown as SearchApiClient)
     })
 
     afterEach(() => {
@@ -44,38 +58,36 @@ describe('NewsFetchService', () => {
         vi.clearAllMocks()
     })
 
-    describe('fetchAndSaveNews', () => {
-        it('should fetch news from API and save to database', async () => {
-            const mockArticles: NewsApiArticle[] = [
+    describe('fetchByCategory', () => {
+        it('should fetch news from Search API and save to database', async () => {
+            const mockArticles: SearchResultArticle[] = [
                 {
-                    source: { id: 'test', name: 'TechSource' },
-                    author: null,
                     title: '기술 뉴스 1',
-                    description: '설명 1',
                     url: 'https://example.com/news/1',
-                    urlToImage: 'https://example.com/image1.jpg',
-                    publishedAt: '2026-01-06T10:00:00Z',
-                    content: null,
+                    snippet: '설명 1',
+                    source: 'TechSource',
+                    imageUrl: 'https://example.com/image1.jpg',
+                    favicon: null,
                 },
                 {
-                    source: { id: 'test2', name: 'ScienceSource' },
-                    author: null,
                     title: '과학 뉴스 2',
-                    description: '설명 2',
                     url: 'https://example.com/news/2',
-                    urlToImage: 'https://example.com/image2.jpg',
-                    publishedAt: '2026-01-06T09:00:00Z',
-                    content: null,
+                    snippet: '설명 2',
+                    source: 'ScienceSource',
+                    imageUrl: 'https://example.com/image2.jpg',
+                    favicon: null,
                 },
             ]
 
-            mockApiClient.fetchTechNews.mockResolvedValueOnce(mockArticles)
+            mockSearchClient.searchNews.mockResolvedValueOnce(mockArticles)
 
-            const result = await service.fetchAndSaveNews()
+            const result = await service.fetchByCategory(testCategory)
 
             expect(result.fetched).toBe(2)
             expect(result.saved).toBe(2)
             expect(result.duplicates).toBe(0)
+            expect(result.categoryId).toBe(testCategory.id)
+            expect(result.categoryName).toBe(testCategory.name)
 
             const allNews = repository.findAll()
             expect(allNews).toHaveLength(2)
@@ -91,32 +103,28 @@ describe('NewsFetchService', () => {
             })
             repository.save(existingNews)
 
-            const mockArticles: NewsApiArticle[] = [
+            const mockArticles: SearchResultArticle[] = [
                 {
-                    source: { id: 'test', name: 'TechSource' },
-                    author: null,
                     title: '새 뉴스',
-                    description: '설명',
                     url: 'https://example.com/new',
-                    urlToImage: null,
-                    publishedAt: '2026-01-06T10:00:00Z',
-                    content: null,
+                    snippet: '설명',
+                    source: 'TechSource',
+                    imageUrl: null,
+                    favicon: null,
                 },
                 {
-                    source: { id: 'test', name: 'ExistingSource' },
-                    author: null,
                     title: '중복 뉴스 (다른 제목)',
-                    description: '설명',
                     url: 'https://example.com/existing', // Same URL as existing
-                    urlToImage: null,
-                    publishedAt: '2026-01-06T09:00:00Z',
-                    content: null,
+                    snippet: '설명',
+                    source: 'ExistingSource',
+                    imageUrl: null,
+                    favicon: null,
                 },
             ]
 
-            mockApiClient.fetchTechNews.mockResolvedValueOnce(mockArticles)
+            mockSearchClient.searchNews.mockResolvedValueOnce(mockArticles)
 
-            const result = await service.fetchAndSaveNews()
+            const result = await service.fetchByCategory(testCategory)
 
             expect(result.fetched).toBe(2)
             expect(result.saved).toBe(1)
@@ -127,19 +135,38 @@ describe('NewsFetchService', () => {
         })
 
         it('should handle API errors gracefully', async () => {
-            mockApiClient.fetchTechNews.mockRejectedValueOnce(new Error('API Error'))
+            mockSearchClient.searchNews.mockRejectedValueOnce(new Error('API Error'))
 
-            await expect(service.fetchAndSaveNews()).rejects.toThrow('API Error')
+            await expect(service.fetchByCategory(testCategory)).rejects.toThrow('API Error')
         })
 
         it('should return empty result when no articles fetched', async () => {
-            mockApiClient.fetchTechNews.mockResolvedValueOnce([])
+            mockSearchClient.searchNews.mockResolvedValueOnce([])
 
-            const result = await service.fetchAndSaveNews()
+            const result = await service.fetchByCategory(testCategory)
 
             expect(result.fetched).toBe(0)
             expect(result.saved).toBe(0)
             expect(result.duplicates).toBe(0)
         })
     })
+
+    describe('fetchAllCategories', () => {
+        it('should fetch news from multiple categories', async () => {
+            const categories: Category[] = [
+                { id: 'cat1', name: '카테고리1', searchQuery: '쿼리1', isDefault: true, createdAt: new Date() },
+                { id: 'cat2', name: '카테고리2', searchQuery: '쿼리2', isDefault: false, createdAt: new Date() },
+            ]
+
+            mockSearchClient.searchNews.mockResolvedValue([
+                { title: '뉴스', url: 'https://example.com/1', snippet: '', source: 'Src', imageUrl: null, favicon: null },
+            ])
+
+            const results = await service.fetchAllCategories(categories)
+
+            expect(results).toHaveLength(2)
+            expect(mockSearchClient.searchNews).toHaveBeenCalledTimes(2)
+        })
+    })
 })
+

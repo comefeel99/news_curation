@@ -1,21 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { NewsRepository } from '@/infrastructure/repositories/NewsRepository'
+import { FetchLogRepository } from '@/infrastructure/repositories/FetchLogRepository'
 import { initializeDatabase, getDatabase, isDatabaseInitialized } from '@/infrastructure/database/sqlite'
 
 /**
- * GET /api/news
- * 뉴스 목록 조회 API (페이지네이션 + 카테고리 필터링 지원)
+ * GET /api/admin/fetch-logs
+ * 수집 로그 목록 조회 (최신순, 페이지네이션)
  */
 export async function GET(request: NextRequest) {
     try {
-        // 쿼리 파라미터 파싱
         const searchParams = request.nextUrl.searchParams
         const page = parseInt(searchParams.get('page') || '1', 10)
-        const limit = parseInt(searchParams.get('limit') || '10', 10)
-        const categoryId = searchParams.get('categoryId') || undefined
+        const limit = parseInt(searchParams.get('limit') || '20', 10)
 
         // 유효성 검증
-        if (page < 1 || limit < 1 || limit > 50) {
+        if (page < 1 || limit < 1 || limit > 100) {
             return NextResponse.json(
                 { error: 'Invalid page or limit parameter' },
                 { status: 400 }
@@ -27,9 +25,9 @@ export async function GET(request: NextRequest) {
             initializeDatabase()
         }
 
-        // 뉴스 조회 (카테고리 필터 적용)
-        const repository = new NewsRepository(getDatabase())
-        const result = repository.findAllPaginated(page, limit, categoryId)
+        const db = getDatabase()
+        const fetchLogRepository = new FetchLogRepository(db)
+        const result = fetchLogRepository.findAllPaginated(page, limit)
 
         return NextResponse.json({
             success: true,
@@ -43,10 +41,10 @@ export async function GET(request: NextRequest) {
             },
         })
     } catch (error) {
-        console.error('Error fetching news:', error)
+        console.error('Error fetching logs:', error)
         const message = error instanceof Error ? error.message : 'Unknown error'
         return NextResponse.json(
-            { error: `Failed to fetch news: ${message}` },
+            { error: `Failed to fetch logs: ${message}` },
             { status: 500 }
         )
     }

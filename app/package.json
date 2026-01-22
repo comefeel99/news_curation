@@ -13,8 +13,10 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@types/node-cron": "^3.0.11",
     "better-sqlite3": "^12.5.0",
     "next": "16.1.1",
+    "node-cron": "^4.2.1",
     "openai": "^6.15.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",

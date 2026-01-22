@@ -19,11 +19,15 @@ interface NewsResponse {
     pagination: PaginationInfo
 }
 
+interface NewsFeedProps {
+    selectedCategoryId: string | null
+}
+
 /**
  * 뉴스 피드 컴포넌트
  * 무한 스크롤을 지원하는 뉴스 목록을 표시합니다.
  */
-export default function NewsFeed() {
+export default function NewsFeed({ selectedCategoryId }: NewsFeedProps) {
     const [news, setNews] = useState<News[]>([])
     const [page, setPage] = useState(1)
     const [hasMore, setHasMore] = useState(true)
@@ -42,7 +46,11 @@ export default function NewsFeed() {
         setError(null)
 
         try {
-            const response = await fetch(`/api/news?page=${pageNum}&limit=10`)
+            let url = `/api/news?page=${pageNum}&limit=10`
+            if (selectedCategoryId) {
+                url += `&categoryId=${selectedCategoryId}`
+            }
+            const response = await fetch(url)
 
             if (!response.ok) {
                 throw new Error('뉴스를 불러오는데 실패했습니다.')
@@ -64,12 +72,16 @@ export default function NewsFeed() {
             setIsLoading(false)
             setIsInitialLoad(false)
         }
-    }, [isLoading])
+    }, [isLoading, selectedCategoryId])
 
-    // 초기 로드
+    // 초기 로드 및 카테고리 변경 시 재로드
     useEffect(() => {
+        setNews([])
+        setPage(1)
+        setHasMore(true)
+        setIsInitialLoad(true)
         fetchNews(1)
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [selectedCategoryId]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // 무한 스크롤 설정
     useEffect(() => {

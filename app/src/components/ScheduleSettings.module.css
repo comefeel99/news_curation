@@ -1,0 +1,246 @@
+.container {
+    max-width: 800px;
+}
+
+.loading,
+.error {
+    text-align: center;
+    padding: 2rem;
+    color: #6b7280;
+}
+
+.section {
+    background-color: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.sectionTitle {
+    margin: 0 0 1.5rem 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+.controlGroup {
+    margin-bottom: 1.5rem;
+}
+
+.label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.5rem;
+}
+
+/* Toggle Switch */
+.toggleLabel {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.toggleInput {
+    margin-right: 0.5rem;
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.toggleText {
+    font-weight: 500;
+    color: #374151;
+}
+
+/* Presets */
+.presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.presetBtn {
+    padding: 0.5rem 1rem;
+    border: 1px solid #d1d5db;
+    background-color: #fff;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: #374151;
+    transition: all 0.2s;
+}
+
+.presetBtn:hover:not(:disabled) {
+    background-color: #f3f4f6;
+}
+
+.presetBtn.active {
+    background-color: #eff6ff;
+    border-color: #3b82f6;
+    color: #2563eb;
+    font-weight: 500;
+}
+
+.presetBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: #f3f4f6;
+}
+
+/* Input */
+.input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-family: monospace;
+}
+
+.input:disabled {
+    background-color: #f3f4f6;
+    cursor: not-allowed;
+}
+
+.helpText {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.codeTag {
+    background-color: #f3f4f6;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+}
+
+/* Actions */
+.actions {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.saveBtn {
+    padding: 0.625rem 1.25rem;
+    background-color: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.saveBtn:hover:not(:disabled) {
+    background-color: #1d4ed8;
+}
+
+.saveBtn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* Message */
+.message {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+}
+
+.message.success {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.message.error {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+/* Description */
+.description {
+    background-color: #f9fafb;
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+}
+
+.description h4 {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.description ul {
+    margin: 0;
+    padding-left: 1.25rem;
+    font-size: 0.875rem;
+    color: #4b5563;
+}
+
+.description li {
+    margin-bottom: 0.5rem;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+    .section {
+        background-color: #1f2937;
+        border-color: #374151;
+    }
+
+    .sectionTitle {
+        color: #f3f4f6;
+    }
+
+    .label,
+    .toggleText {
+        color: #d1d5db;
+    }
+
+    .presetBtn {
+        background-color: #374151;
+        border-color: #4b5563;
+        color: #d1d5db;
+    }
+
+    .presetBtn:hover:not(:disabled) {
+        background-color: #4b5563;
+    }
+
+    .presetBtn.active {
+        background-color: #1e3a5f;
+        border-color: #60a5fa;
+        color: #60a5fa;
+    }
+
+    .presetBtn:disabled {
+        background-color: #374151;
+    }
+
+    .input {
+        background-color: #374151;
+        border-color: #4b5563;
+        color: #f3f4f6;
+    }
+
+    .input:disabled {
+        background-color: #1f2937;
+    }
+
+    .description {
+        background-color: #1f2937;
+    }
+
+    .description h4 {
+        color: #d1d5db;
+    }
+
+    .description ul {
+        color: #9ca3af;
+    }
+}

@@ -1,0 +1,115 @@
+.page {
+    min-height: 100vh;
+    background: var(--bg-color, #f5f5f5);
+}
+
+.header {
+    background: white;
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-color, #333);
+}
+
+.backLink {
+    color: var(--primary-color, #007bff);
+    text-decoration: none;
+    font-size: 0.9375rem;
+}
+
+.backLink:hover {
+    text-decoration: underline;
+}
+
+.main {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.tabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.tab {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    background: none;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-color, #666);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.tab:hover {
+    color: var(--primary-color, #007bff);
+}
+
+.activeTab {
+    color: var(--primary-color, #007bff);
+    border-bottom-color: var(--primary-color, #007bff);
+    font-weight: 600;
+}
+
+/* 다크모드 */
+@media (prefers-color-scheme: dark) {
+    .page {
+        background: #1a1a1a;
+    }
+
+    .header {
+        background: #2a2a2a;
+        border-color: #444;
+    }
+
+    .title {
+        color: #e0e0e0;
+    }
+
+    .tabs {
+        border-color: #444;
+    }
+
+    .tab {
+        color: #9ca3af;
+    }
+
+    .tab:hover {
+        color: #60a5fa;
+    }
+
+    .activeTab {
+        color: #60a5fa;
+        border-bottom-color: #60a5fa;
+    }
+}
+
+/* 모바일 */
+@media (max-width: 768px) {
+    .header {
+        padding: 1rem;
+    }
+
+    .main {
+        padding: 1rem;
+    }
+
+    .title {
+        font-size: 1.25rem;
+    }
+}

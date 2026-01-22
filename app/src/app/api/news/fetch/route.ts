@@ -1,82 +1,133 @@
 import { NextResponse } from 'next/server'
-import { NewsApiClient } from '@/infrastructure/api/NewsApiClient'
+import { SearchApiClient } from '@/infrastructure/api/SearchApiClient'
 import { NewsRepository } from '@/infrastructure/repositories/NewsRepository'
+import { CategoryRepository } from '@/infrastructure/repositories/CategoryRepository'
+import { FetchLogRepository, CategoryFetchResult } from '@/infrastructure/repositories/FetchLogRepository'
 import { NewsFetchService } from '@/application/services/NewsFetchService'
 import { AISummaryService } from '@/application/services/AISummaryService'
 import { GPTLogger } from '@/infrastructure/logging/GPTLogger'
+import { SearchApiLogger } from '@/infrastructure/logging/SearchApiLogger'
 import { initializeDatabase, getDatabase, isDatabaseInitialized } from '@/infrastructure/database/sqlite'
 
 /**
  * POST /api/news/fetch
- * 뉴스 수집 API - NewsAPI에서 뉴스를 가져와 데이터베이스에 저장하고 AI 요약 생성
+ * 뉴스 수집 API - 모든 카테고리에서 뉴스를 검색하여 데이터베이스에 저장
  */
 export async function POST() {
+    const startTime = Date.now()
+
+    // 데이터베이스 초기화
+    if (!isDatabaseInitialized()) {
+        initializeDatabase()
+    }
+    const db = getDatabase()
+    const fetchLogRepository = new FetchLogRepository(db)
+
     try {
-        // NewsAPI 키 확인
-        const newsApiKey = process.env.NEWSAPI_KEY
-        if (!newsApiKey) {
+        // Search API 설정 확인
+        const searchApiUrl = process.env.CUSTOM_LLM_URL
+        const searchApiKey = process.env.CUSTOM_LLM_API_KEY || 'NONE'
+        const promptId = process.env.CUSTOM_MODEL
+
+        if (!searchApiUrl || !promptId) {
+            // 설정 오류 로그
+            fetchLogRepository.save({
+                status: 'error',
+                durationMs: Date.now() - startTime,
+                totalFetched: 0,
+                totalSaved: 0,
+                totalDuplicates: 0,
+                categoryResults: [],
+                errorMessage: 'CUSTOM_LLM_URL and CUSTOM_MODEL environment variables are required',
+            })
+
             return NextResponse.json(
-                { error: 'NEWSAPI_KEY environment variable is not set' },
+                { error: 'CUSTOM_LLM_URL and CUSTOM_MODEL environment variables are required' },
                 { status: 500 }
             )
         }
 
-        // 데이터베이스 초기화
-        if (!isDatabaseInitialized()) {
-            initializeDatabase()
-        }
-
-        const db = getDatabase()
-
-        // 서비스 인스턴스 생성
-        const apiClient = new NewsApiClient(newsApiKey)
-        const repository = new NewsRepository(db)
+        // 저장소 및 서비스 인스턴스 생성
+        const searchApiLogger = new SearchApiLogger()
+        const searchClient = new SearchApiClient(searchApiUrl, searchApiKey, promptId, searchApiLogger)
+        const newsRepository = new NewsRepository(db)
+        const categoryRepository = new CategoryRepository(db)
 
         // AI 요약 서비스 생성 (OpenAI 키가 있는 경우에만)
         let aiSummaryService: AISummaryService | null = null
         const openaiKey = process.env.OPENAI_API_KEY
-        if (openaiKey) {
+        if (openaiKey && openaiKey !== 'your_openai_api_key_here') {
             const gptLogger = new GPTLogger(db)
             aiSummaryService = new AISummaryService(openaiKey, 'gpt-4o-mini', gptLogger)
         }
 
-        const fetchService = new NewsFetchService(repository, apiClient, aiSummaryService)
+        const fetchService = new NewsFetchService(newsRepository, searchClient, aiSummaryService)
 
-        // 기술 뉴스 수집
-        const techResult = await fetchService.fetchAndSaveNews()
+        // 모든 카테고리 조회
+        const categories = categoryRepository.findAll()
 
-        // 과학 뉴스 수집
-        const scienceResult = await fetchService.fetchAndSaveScienceNews()
+        // 모든 카테고리에서 뉴스 수집
+        const results = await fetchService.fetchAllCategories(categories)
 
-        const result = {
-            success: true,
-            aiSummaryEnabled: !!aiSummaryService,
-            technology: {
-                fetched: techResult.fetched,
-                saved: techResult.saved,
-                duplicates: techResult.duplicates,
-                summarized: techResult.summarized,
-                errors: techResult.errors,
-            },
-            science: {
-                fetched: scienceResult.fetched,
-                saved: scienceResult.saved,
-                duplicates: scienceResult.duplicates,
-                summarized: scienceResult.summarized,
-                errors: scienceResult.errors,
-            },
-            total: {
-                fetched: techResult.fetched + scienceResult.fetched,
-                saved: techResult.saved + scienceResult.saved,
-                duplicates: techResult.duplicates + scienceResult.duplicates,
-                summarized: techResult.summarized + scienceResult.summarized,
-            },
+        // 결과 집계
+        const total = {
+            fetched: 0,
+            saved: 0,
+            duplicates: 0,
+            summarized: 0,
         }
 
-        return NextResponse.json(result)
+        const categoryResults: CategoryFetchResult[] = results.map(result => {
+            total.fetched += result.fetched
+            total.saved += result.saved
+            total.duplicates += result.duplicates
+            total.summarized += result.summarized
+
+            return {
+                categoryId: result.categoryId || '',
+                categoryName: result.categoryName || '',
+                fetched: result.fetched,
+                saved: result.saved,
+                duplicates: result.duplicates,
+                errors: result.errors,
+            }
+        })
+
+        const durationMs = Date.now() - startTime
+
+        // 성공 로그 저장
+        fetchLogRepository.save({
+            status: 'success',
+            durationMs,
+            totalFetched: total.fetched,
+            totalSaved: total.saved,
+            totalDuplicates: total.duplicates,
+            categoryResults,
+        })
+
+        return NextResponse.json({
+            success: true,
+            aiSummaryEnabled: !!aiSummaryService,
+            categories: categoryResults,
+            total,
+            durationMs,
+        })
     } catch (error) {
-        console.error('Error fetching news:', error)
+        const durationMs = Date.now() - startTime
         const message = error instanceof Error ? error.message : 'Unknown error'
+        console.error('Error fetching news:', error)
+
+        // 에러 로그 저장
+        fetchLogRepository.save({
+            status: 'error',
+            durationMs,
+            totalFetched: 0,
+            totalSaved: 0,
+            totalDuplicates: 0,
+            categoryResults: [],
+            errorMessage: message,
+        })
+
         return NextResponse.json(
             { error: `Failed to fetch news: ${message}` },
             { status: 500 }

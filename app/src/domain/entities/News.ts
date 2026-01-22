@@ -11,6 +11,7 @@ export interface News {
     publishedAt: Date
     summary?: string
     imageUrl?: string
+    categoryId?: string
     createdAt: Date
 }
 
@@ -24,6 +25,7 @@ export interface CreateNewsInput {
     publishedAt: Date
     summary?: string
     imageUrl?: string
+    categoryId?: string
 }
 
 /**
@@ -40,6 +42,7 @@ export function createNews(input: CreateNewsInput): News {
         publishedAt: input.publishedAt,
         summary: input.summary,
         imageUrl: input.imageUrl,
+        categoryId: input.categoryId,
         createdAt: new Date(),
     }
 }
@@ -87,6 +90,7 @@ export function rowToNews(row: Record<string, unknown>): News {
         publishedAt: new Date(row.published_at as string),
         summary: row.summary as string | undefined,
         imageUrl: row.image_url as string | undefined,
+        categoryId: row.category_id as string | undefined,
         createdAt: new Date(row.created_at as string),
     }
 }

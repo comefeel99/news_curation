@@ -36,8 +36,8 @@ export class NewsRepository {
         }
 
         const stmt = this.db.prepare(`
-      INSERT INTO news (id, title, url, source, published_at, summary, image_url, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO news (id, title, url, source, published_at, summary, image_url, category_id, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
 
         stmt.run(
@@ -48,6 +48,7 @@ export class NewsRepository {
             news.publishedAt.toISOString(),
             news.summary || null,
             news.imageUrl || null,
+            news.categoryId || null,
             news.createdAt.toISOString()
         )
 
@@ -70,21 +71,37 @@ export class NewsRepository {
      * 페이지네이션된 뉴스 조회
      * @param page - 페이지 번호 (1부터 시작)
      * @param limit - 페이지당 항목 수
+     * @param categoryId - 카테고리 ID (선택적)
      * @returns 페이지네이션 결과
      */
-    findAllPaginated(page: number, limit: number): PaginatedResult<News> {
+    findAllPaginated(page: number, limit: number, categoryId?: string): PaginatedResult<News> {
         const offset = (page - 1) * limit
 
-        // 전체 개수 조회
-        const countStmt = this.db.prepare('SELECT COUNT(*) as count FROM news')
-        const countResult = countStmt.get() as { count: number }
-        const total = countResult.count
+        let total: number
+        let rows: Record<string, unknown>[]
 
-        // 페이지네이션된 데이터 조회
-        const stmt = this.db.prepare(`
-      SELECT * FROM news ORDER BY published_at DESC LIMIT ? OFFSET ?
-    `)
-        const rows = stmt.all(limit, offset) as Record<string, unknown>[]
+        if (categoryId) {
+            // 특정 카테고리의 뉴스만 조회
+            const countStmt = this.db.prepare('SELECT COUNT(*) as count FROM news WHERE category_id = ?')
+            const countResult = countStmt.get(categoryId) as { count: number }
+            total = countResult.count
+
+            const stmt = this.db.prepare(`
+              SELECT * FROM news WHERE category_id = ? ORDER BY published_at DESC LIMIT ? OFFSET ?
+            `)
+            rows = stmt.all(categoryId, limit, offset) as Record<string, unknown>[]
+        } else {
+            // 전체 뉴스 조회
+            const countStmt = this.db.prepare('SELECT COUNT(*) as count FROM news')
+            const countResult = countStmt.get() as { count: number }
+            total = countResult.count
+
+            const stmt = this.db.prepare(`
+              SELECT * FROM news ORDER BY published_at DESC LIMIT ? OFFSET ?
+            `)
+            rows = stmt.all(limit, offset) as Record<string, unknown>[]
+        }
+
         const data = rows.map(rowToNews)
 
         return {
@@ -94,6 +111,17 @@ export class NewsRepository {
             limit,
             hasMore: offset + data.length < total,
         }
+    }
+
+    /**
+     * 카테고리별 뉴스 조회
+     * @param categoryId - 카테고리 ID
+     * @param page - 페이지 번호
+     * @param limit - 페이지당 항목 수
+     * @returns 페이지네이션 결과
+     */
+    findByCategory(categoryId: string, page: number, limit: number): PaginatedResult<News> {
+        return this.findAllPaginated(page, limit, categoryId)
     }
 
     /**
