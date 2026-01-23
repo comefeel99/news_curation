@@ -1,47 +1,43 @@
-import OpenAI from 'openai'
 import { GPTLogger } from '@/infrastructure/logging/GPTLogger'
 
 /**
- * OpenAI 클라이언트 인터페이스 (테스트 용이성을 위해)
+ * Chat Completions API 응답 타입
  */
-export interface OpenAIClient {
-    chat: {
-        completions: {
-            create: (params: unknown) => Promise<{
-                choices: Array<{
-                    message: {
-                        content: string | null
-                    }
-                }>
-                usage?: {
-                    prompt_tokens: number
-                    completion_tokens: number
-                    total_tokens: number
-                }
-            }>
+interface ChatCompletionResponse {
+    state: number
+    res: {
+        choices: Array<{
+            message: {
+                content: string
+            }
+        }>
+        usage?: {
+            prompt_tokens: number
+            completion_tokens: number
+            total_tokens: number
         }
     }
 }
 
 /**
  * AI 요약 서비스
- * OpenAI GPT를 활용하여 뉴스 기사를 요약합니다.
+ * Chat Completions API를 활용하여 뉴스 기사를 요약합니다.
+ * SearchApiClient와 동일하게 직접 fetch를 사용합니다.
  */
 export class AISummaryService {
-    private client: OpenAIClient
-    private model: string
-    private logger: GPTLogger | null
+    private readonly apiUrl: string
+    private readonly apiKey: string
+    private readonly model: string
+    private readonly logger: GPTLogger | null
 
     constructor(
-        apiKeyOrClient: string | OpenAIClient,
-        model: string = 'gpt-4o-mini',
+        apiUrl: string,
+        apiKey: string,
+        model: string,
         logger: GPTLogger | null = null
     ) {
-        if (typeof apiKeyOrClient === 'string') {
-            this.client = new OpenAI({ apiKey: apiKeyOrClient }) as unknown as OpenAIClient
-        } else {
-            this.client = apiKeyOrClient
-        }
+        this.apiUrl = apiUrl
+        this.apiKey = apiKey
         this.model = model
         this.logger = logger
     }
@@ -58,128 +54,110 @@ export class AISummaryService {
         content: string,
         newsId: string | null = null
     ): Promise<string | null> {
-        // 내용이 없으면 요약 생성 불가
         if (!content || content.trim() === '') {
             return null
         }
 
         const prompt = this.buildPrompt(title, content)
-        const startTime = Date.now()
-
-        try {
-            const response = await this.client.chat.completions.create({
-                model: this.model,
-                messages: [
-                    {
-                        role: 'system',
-                        content: '당신은 뉴스 기사를 간결하고 명확하게 요약하는 전문가입니다. 항상 한국어로 응답합니다.',
-                    },
-                    {
-                        role: 'user',
-                        content: prompt,
-                    },
-                ],
-                max_tokens: 300,
-                temperature: 0.3,
-            })
-
-            const summary = response.choices[0]?.message?.content
-            const durationMs = Date.now() - startTime
-
-            // 로깅
-            if (this.logger) {
-                this.logger.log({
-                    model: this.model,
-                    prompt: prompt.substring(0, 1000), // 프롬프트 길이 제한
-                    response: summary,
-                    tokensInput: response.usage?.prompt_tokens || null,
-                    tokensOutput: response.usage?.completion_tokens || null,
-                    durationMs,
-                    newsId,
-                    status: 'success',
-                    errorMessage: null,
-                })
-            }
-
-            return summary || null
-        } catch (error) {
-            const durationMs = Date.now() - startTime
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-
-            // 에러 로깅
-            if (this.logger) {
-                this.logger.log({
-                    model: this.model,
-                    prompt: prompt.substring(0, 1000),
-                    response: null,
-                    tokensInput: null,
-                    tokensOutput: null,
-                    durationMs,
-                    newsId,
-                    status: 'error',
-                    errorMessage,
-                })
-            }
-
-            throw error
-        }
+        return this.callApi(prompt, newsId)
     }
 
     /**
-     * URL과 제목만으로 요약 생성 (내용 없이 제목과 출처 기반)
+     * URL과 제목, snippet, description으로 요약 생성
      * @param title - 뉴스 제목
      * @param url - 뉴스 URL
      * @param source - 뉴스 출처
      * @param newsId - 관련 뉴스 ID (로깅용)
+     * @param snippet - 검색 결과 snippet (선택)
+     * @param description - OG description (선택)
      * @returns 요약 텍스트 또는 null
      */
     async generateSummaryFromUrl(
         title: string,
         url: string,
         source: string,
-        newsId: string | null = null
+        newsId: string | null = null,
+        snippet?: string,
+        description?: string
     ): Promise<string | null> {
-        const prompt = `다음 뉴스 기사의 제목과 출처를 바탕으로 기사 내용을 추측하여 한국어로 3-4줄로 요약해주세요.
+        // snippet과 description 정보 구성
+        let contentInfo = ''
+        if (snippet) {
+            contentInfo += `\n발췌: ${snippet}`
+        }
+        if (description && description !== snippet) {
+            contentInfo += `\n설명: ${description}`
+        }
+
+        const prompt = `다음 뉴스 기사 정보를 바탕으로 한국어로 3-4줄로 요약해주세요.
 
 제목: ${title}
 출처: ${source}
-URL: ${url}
+URL: ${url}${contentInfo}
 
 주의사항:
-- 제목에서 유추할 수 있는 핵심 내용만 포함
-- 추측이 아닌 사실적인 톤 유지
-- 독자가 기사의 핵심을 파악할 수 있도록 작성`
+- 제공된 정보를 바탕으로 핵심 내용을 요약
+- 객관적이고 사실적인 톤 유지
+- 출처, URL, 날짜 등 메타정보는 요약에 포함하지 마세요
+- 독자가 기사의 핵심을 빠르게 파악할 수 있도록 작성`
 
+        return this.callApi(prompt, newsId)
+    }
+
+    /**
+     * API 호출 공통 메서드
+     */
+    private async callApi(prompt: string, newsId: string | null): Promise<string | null> {
         const startTime = Date.now()
 
+        const requestBody = {
+            is_production: false,
+            prompt_id: parseInt(this.model, 10),
+            messages: [
+                {
+                    role: 'system',
+                    content: '당신은 뉴스 기사를 간결하고 명확하게 요약하는 전문가입니다. 항상 한국어로 응답합니다.',
+                },
+                {
+                    role: 'user',
+                    content: prompt,
+                },
+            ],
+        }
+
         try {
-            const response = await this.client.chat.completions.create({
-                model: this.model,
-                messages: [
-                    {
-                        role: 'system',
-                        content: '당신은 뉴스 기사를 간결하고 명확하게 요약하는 전문가입니다. 항상 한국어로 응답합니다.',
-                    },
-                    {
-                        role: 'user',
-                        content: prompt,
-                    },
-                ],
-                max_tokens: 300,
-                temperature: 0.3,
+            const response = await fetch(this.apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(this.apiKey && this.apiKey !== 'NONE' ? { 'Authorization': `Bearer ${this.apiKey}` } : {}),
+                },
+                body: JSON.stringify(requestBody),
             })
 
-            const summary = response.choices[0]?.message?.content
+            if (!response.ok) {
+                const errorText = await response.text()
+                throw new Error(`Summary API error: ${response.status} ${response.statusText} - ${errorText}`)
+            }
+
+            const data: ChatCompletionResponse = await response.json()
+
+            // 응답 상태 확인
+            if (data.state !== 200) {
+                throw new Error(`Summary API returned error state: ${data.state}`)
+            }
+
+            const summary = data.res?.choices?.[0]?.message?.content || null
             const durationMs = Date.now() - startTime
 
-            // 로깅
+            // 성공 로깅
             if (this.logger) {
                 this.logger.log({
                     model: this.model,
                     prompt: prompt.substring(0, 1000),
                     response: summary,
-                    tokensInput: response.usage?.prompt_tokens || null,
-                    tokensOutput: response.usage?.completion_tokens || null,
+                    tokensInput: data.res?.usage?.prompt_tokens || null,
+                    tokensOutput: data.res?.usage?.completion_tokens || null,
                     durationMs,
                     newsId,
                     status: 'success',
@@ -187,7 +165,7 @@ URL: ${url}
                 })
             }
 
-            return summary || null
+            return summary
         } catch (error) {
             const durationMs = Date.now() - startTime
             const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -213,9 +191,6 @@ URL: ${url}
 
     /**
      * 요약 프롬프트 생성
-     * @param title - 뉴스 제목
-     * @param content - 뉴스 내용
-     * @returns 프롬프트 문자열
      */
     buildPrompt(title: string, content: string): string {
         return `다음 뉴스 기사를 한국어로 3-4줄로 요약해주세요.
@@ -234,8 +209,6 @@ ${content}
 
     /**
      * 여러 뉴스 기사 배치 요약
-     * @param articles - 요약할 뉴스 배열 [{title, content}]
-     * @returns 요약 결과 배열
      */
     async generateBatchSummaries(
         articles: Array<{ id: string; title: string; content?: string }>

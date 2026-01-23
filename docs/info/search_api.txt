@@ -1,7 +1,7 @@
 
-CUSTOM_LLM_URL="http://xxxxx/api/v2/chat/completions"
-CUSTOM_LLM_API_KEY="NONE"
-CUSTOM_MODEL="125303"
+SEARCH_LLM_URL="http://xxxxx/api/v2/chat/completions"
+SEARCH_LLM_API_KEY="NONE"
+SEARCH_MODEL="125303"
 
 PET Request Body
 {

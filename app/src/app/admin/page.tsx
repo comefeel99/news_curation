@@ -4,9 +4,10 @@ import { useState } from 'react'
 import FetchLogTable from '@/components/FetchLogTable'
 import SearchApiLogTable from '@/components/SearchApiLogTable'
 import ScheduleSettings from '@/components/ScheduleSettings'
+import CategoryManagement from '@/components/CategoryManagement'
 import styles from './page.module.css'
 
-type Tab = 'fetch-logs' | 'search-logs' | 'settings'
+type Tab = 'fetch-logs' | 'search-logs' | 'settings' | 'categories'
 
 /**
  * 관리자 페이지
@@ -35,6 +36,12 @@ export default function AdminPage() {
                         Search API 로그
                     </button>
                     <button
+                        className={`${styles.tab} ${activeTab === 'categories' ? styles.activeTab : ''}`}
+                        onClick={() => setActiveTab('categories')}
+                    >
+                        카테고리 관리
+                    </button>
+                    <button
                         className={`${styles.tab} ${activeTab === 'settings' ? styles.activeTab : ''}`}
                         onClick={() => setActiveTab('settings')}
                     >
@@ -45,6 +52,7 @@ export default function AdminPage() {
                 {activeTab === 'fetch-logs' && <FetchLogTable />}
                 {activeTab === 'search-logs' && <SearchApiLogTable />}
                 {activeTab === 'settings' && <ScheduleSettings />}
+                {activeTab === 'categories' && <CategoryManagement />}
             </main>
         </div>
     )

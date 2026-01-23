@@ -89,14 +89,16 @@ export class NewsFetchService {
                 if (saved) {
                     result.saved++
 
-                    // AI 요약 생성 (이미 snippet이 있으면 스킵)
-                    if (this.aiSummaryService && !news.summary) {
+                    // AI 요약 생성 (snippet을 입력으로 사용하여 개선된 요약 생성)
+                    if (this.aiSummaryService) {
                         try {
                             const summary = await this.aiSummaryService.generateSummaryFromUrl(
                                 news.title,
                                 news.url,
                                 news.source,
-                                news.id
+                                news.id,
+                                article.snippet,  // snippet 전달
+                                undefined         // description (현재 미사용)
                             )
                             if (summary) {
                                 this.repository.updateSummary(news.id, summary)
@@ -262,9 +264,9 @@ export function createNewsFetchService(): NewsFetchService {
     const newsRepository = new NewsRepository(db)
 
     // Search API 설정
-    const searchApiUrl = process.env.CUSTOM_LLM_URL
-    const searchApiKey = process.env.CUSTOM_LLM_API_KEY || 'NONE'
-    const promptId = process.env.CUSTOM_MODEL
+    const searchApiUrl = process.env.SEARCH_LLM_URL
+    const searchApiKey = process.env.SEARCH_LLM_API_KEY || 'NONE'
+    const promptId = process.env.SEARCH_MODEL
 
     if (!searchApiUrl || !promptId) {
         throw new Error('Search API environment variables are not set')
@@ -275,10 +277,12 @@ export function createNewsFetchService(): NewsFetchService {
 
     // AI Summary 서비스
     let aiSummaryService: AISummaryService | null = null
-    const openaiKey = process.env.OPENAI_API_KEY
-    if (openaiKey && openaiKey !== 'your_openai_api_key_here') {
+    const summaryUrl = process.env.SUMMARY_LLM_URL
+    const summaryKey = process.env.SUMMARY_LLM_API_KEY || 'NONE'
+    const summaryModel = process.env.SUMMARY_MODEL
+    if (summaryUrl && summaryModel) {
         const gptLogger = new GPTLogger(db)
-        aiSummaryService = new AISummaryService(openaiKey, 'gpt-4o-mini', gptLogger)
+        aiSummaryService = new AISummaryService(summaryUrl, summaryKey, summaryModel, gptLogger)
     }
 
     return new NewsFetchService(newsRepository, searchClient, aiSummaryService)

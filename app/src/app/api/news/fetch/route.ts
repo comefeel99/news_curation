@@ -25,9 +25,9 @@ export async function POST() {
 
     try {
         // Search API 설정 확인
-        const searchApiUrl = process.env.CUSTOM_LLM_URL
-        const searchApiKey = process.env.CUSTOM_LLM_API_KEY || 'NONE'
-        const promptId = process.env.CUSTOM_MODEL
+        const searchApiUrl = process.env.SEARCH_LLM_URL
+        const searchApiKey = process.env.SEARCH_LLM_API_KEY || 'NONE'
+        const promptId = process.env.SEARCH_MODEL
 
         if (!searchApiUrl || !promptId) {
             // 설정 오류 로그
@@ -38,11 +38,11 @@ export async function POST() {
                 totalSaved: 0,
                 totalDuplicates: 0,
                 categoryResults: [],
-                errorMessage: 'CUSTOM_LLM_URL and CUSTOM_MODEL environment variables are required',
+                errorMessage: 'SEARCH_LLM_URL and SEARCH_MODEL environment variables are required',
             })
 
             return NextResponse.json(
-                { error: 'CUSTOM_LLM_URL and CUSTOM_MODEL environment variables are required' },
+                { error: 'SEARCH_LLM_URL and SEARCH_MODEL environment variables are required' },
                 { status: 500 }
             )
         }
@@ -53,12 +53,14 @@ export async function POST() {
         const newsRepository = new NewsRepository(db)
         const categoryRepository = new CategoryRepository(db)
 
-        // AI 요약 서비스 생성 (OpenAI 키가 있는 경우에만)
+        // AI 요약 서비스 생성 (Summary LLM 설정이 있는 경우에만)
         let aiSummaryService: AISummaryService | null = null
-        const openaiKey = process.env.OPENAI_API_KEY
-        if (openaiKey && openaiKey !== 'your_openai_api_key_here') {
+        const summaryUrl = process.env.SUMMARY_LLM_URL
+        const summaryKey = process.env.SUMMARY_LLM_API_KEY || 'NONE'
+        const summaryModel = process.env.SUMMARY_MODEL
+        if (summaryUrl && summaryModel) {
             const gptLogger = new GPTLogger(db)
-            aiSummaryService = new AISummaryService(openaiKey, 'gpt-4o-mini', gptLogger)
+            aiSummaryService = new AISummaryService(summaryUrl, summaryKey, summaryModel, gptLogger)
         }
 
         const fetchService = new NewsFetchService(newsRepository, searchClient, aiSummaryService)

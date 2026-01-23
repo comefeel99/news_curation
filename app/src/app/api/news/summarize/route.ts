@@ -10,11 +10,13 @@ import { initializeDatabase, getDatabase, isDatabaseInitialized } from '@/infras
  */
 export async function POST() {
     try {
-        // OpenAI 키 확인
-        const openaiKey = process.env.OPENAI_API_KEY
-        if (!openaiKey) {
+        // Summary LLM 설정 확인
+        const summaryUrl = process.env.SUMMARY_LLM_URL
+        const summaryKey = process.env.SUMMARY_LLM_API_KEY || 'NONE'
+        const summaryModel = process.env.SUMMARY_MODEL
+        if (!summaryUrl || !summaryModel) {
             return NextResponse.json(
-                { error: 'OPENAI_API_KEY environment variable is not set' },
+                { error: 'SUMMARY_LLM_URL and SUMMARY_MODEL environment variables are not set' },
                 { status: 500 }
             )
         }
@@ -27,7 +29,7 @@ export async function POST() {
         const db = getDatabase()
         const repository = new NewsRepository(db)
         const gptLogger = new GPTLogger(db)
-        const aiSummaryService = new AISummaryService(openaiKey, 'gpt-4o-mini', gptLogger)
+        const aiSummaryService = new AISummaryService(summaryUrl, summaryKey, summaryModel, gptLogger)
 
         // 요약 없는 뉴스 조회
         const newsWithoutSummary = repository.findWithoutSummary()

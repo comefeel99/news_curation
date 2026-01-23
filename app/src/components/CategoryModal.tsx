@@ -3,22 +3,43 @@
 import { useState } from 'react'
 import styles from './CategoryModal.module.css'
 
+// ... (imports)
+
 interface CategoryModalProps {
     isOpen: boolean
     onClose: () => void
     onSubmit: (name: string, searchQuery: string) => Promise<void>
+    initialData?: { name: string; searchQuery: string } | null
 }
 
 /**
- * 카테고리 추가 모달 컴포넌트
+ * 카테고리 추가/수정 모달 컴포넌트
  */
-export default function CategoryModal({ isOpen, onClose, onSubmit }: CategoryModalProps) {
+export default function CategoryModal({ isOpen, onClose, onSubmit, initialData }: CategoryModalProps) {
     const [name, setName] = useState('')
     const [searchQuery, setSearchQuery] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
+    // 모달이 열릴 때 초기 데이터 설정 (useEffect 사용)
+    const [prevIsOpen, setPrevIsOpen] = useState(false)
+    if (isOpen !== prevIsOpen) {
+        setPrevIsOpen(isOpen)
+        if (isOpen) {
+            if (initialData) {
+                setName(initialData.name)
+                setSearchQuery(initialData.searchQuery)
+            } else {
+                setName('')
+                setSearchQuery('')
+            }
+            setError(null)
+        }
+    }
+
     if (!isOpen) return null
+
+    const isEditMode = !!initialData
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -42,9 +63,7 @@ export default function CategoryModal({ isOpen, onClose, onSubmit }: CategoryMod
         setIsLoading(true)
         try {
             await onSubmit(name.trim(), searchQuery.trim())
-            setName('')
-            setSearchQuery('')
-            onClose()
+            onClose() // 성공 시 닫기 (상태 초기화는 onClose 처리 후나 다시 열 때 수행됨)
         } catch (err) {
             const message = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.'
             setError(message)
@@ -55,9 +74,6 @@ export default function CategoryModal({ isOpen, onClose, onSubmit }: CategoryMod
 
     const handleClose = () => {
         if (!isLoading) {
-            setName('')
-            setSearchQuery('')
-            setError(null)
             onClose()
         }
     }
@@ -66,7 +82,7 @@ export default function CategoryModal({ isOpen, onClose, onSubmit }: CategoryMod
         <div className={styles.overlay} onClick={handleClose}>
             <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
                 <div className={styles.header}>
-                    <h2 className={styles.title}>카테고리 추가</h2>
+                    <h2 className={styles.title}>{isEditMode ? '카테고리 수정' : '카테고리 추가'}</h2>
                     <button
                         className={styles.closeButton}
                         onClick={handleClose}
@@ -133,7 +149,7 @@ export default function CategoryModal({ isOpen, onClose, onSubmit }: CategoryMod
                             className={styles.submitButton}
                             disabled={isLoading}
                         >
-                            {isLoading ? '추가 중...' : '추가'}
+                            {isLoading ? '처리 중...' : (isEditMode ? '수정' : '추가')}
                         </button>
                     </div>
                 </form>

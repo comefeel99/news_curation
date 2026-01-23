@@ -96,23 +96,40 @@ export class CategoryRepository {
     }
 
     /**
-     * 기본 카테고리만 조회
-     * @returns 기본 카테고리 배열
+     * 검색 쿼리 업데이트
+     * @param id - 카테고리 ID
+     * @param name - 새 이름
+     * @param searchQuery - 새 검색 쿼리
+     * @returns 업데이트된 카테고리 또는 null
      */
-    findDefaults(): Category[] {
-        const stmt = this.db.prepare('SELECT * FROM categories WHERE is_default = 1')
-        const rows = stmt.all() as Record<string, unknown>[]
-        return rows.map(rowToCategory)
-    }
+    update(id: string, name: string, searchQuery: string): Category | null {
+        // 1. 존재 여부 및 수정 가능 여부 확인
+        const existing = this.findById(id)
+        if (!existing) {
+            return null
+        }
 
-    /**
-     * 사용자 정의 카테고리만 조회
-     * @returns 사용자 정의 카테고리 배열
-     */
-    findCustom(): Category[] {
-        const stmt = this.db.prepare('SELECT * FROM categories WHERE is_default = 0 ORDER BY created_at ASC')
-        const rows = stmt.all() as Record<string, unknown>[]
-        return rows.map(rowToCategory)
+        if (existing.isDefault) {
+            throw new Error('기본 카테고리는 수정할 수 없습니다.')
+        }
+
+        // 2. 이름 중복 체크 (자기 자신 제외)
+        const nameCheckStmt = this.db.prepare('SELECT id FROM categories WHERE name = ? AND id != ?')
+        const duplicate = nameCheckStmt.get(name, id)
+        if (duplicate) {
+            throw new Error('이미 존재하는 카테고리 이름입니다.')
+        }
+
+        // 3. 업데이트 수행
+        const stmt = this.db.prepare(`
+            UPDATE categories 
+            SET name = ?, search_query = ?
+            WHERE id = ?
+        `)
+
+        stmt.run(name, searchQuery, id)
+
+        return this.findById(id)
     }
 
     /**
@@ -145,47 +162,10 @@ export class CategoryRepository {
 
     /**
      * 카테고리 개수 조회
-     * @returns 전체 카테고리 개수
      */
     count(): number {
         const stmt = this.db.prepare('SELECT COUNT(*) as count FROM categories')
         const row = stmt.get() as { count: number }
         return row.count
-    }
-
-    /**
-     * 카테고리 수정
-     * @param id - 수정할 카테고리 ID
-     * @param input - 수정할 데이터
-     * @returns 수정된 카테고리 또는 null
-     */
-    update(id: string, input: Partial<CreateCategoryInput>): Category | null {
-        const existing = this.findById(id)
-        if (!existing) {
-            return null
-        }
-
-        // 기본 카테고리의 이름은 수정 불가
-        if (existing.isDefault && input.name && input.name !== existing.name) {
-            throw new Error('기본 카테고리의 이름은 수정할 수 없습니다.')
-        }
-
-        const name = input.name ?? existing.name
-        const searchQuery = input.searchQuery ?? existing.searchQuery
-
-        // 이름 중복 체크 (자신 제외)
-        if (input.name) {
-            const duplicate = this.findByName(input.name)
-            if (duplicate && duplicate.id !== id) {
-                throw new Error('이미 존재하는 카테고리 이름입니다.')
-            }
-        }
-
-        const stmt = this.db.prepare(`
-      UPDATE categories SET name = ?, search_query = ? WHERE id = ?
-    `)
-        stmt.run(name, searchQuery, id)
-
-        return this.findById(id)
     }
 }

@@ -7,6 +7,65 @@ interface RouteParams {
 }
 
 /**
+ * PUT /api/categories/:id
+ * 카테고리 수정
+ */
+export async function PUT(request: NextRequest, { params }: RouteParams) {
+    try {
+        const { id } = await params
+        const body = await request.json()
+        const { name, searchQuery } = body
+
+        if (!name || !searchQuery) {
+            return NextResponse.json(
+                { error: '이름과 검색어는 필수입니다.' },
+                { status: 400 }
+            )
+        }
+
+        if (!isDatabaseInitialized()) {
+            initializeDatabase()
+        }
+
+        const db = getDatabase()
+        const categoryRepository = new CategoryRepository(db)
+
+        try {
+            const updatedCategory = categoryRepository.update(id, name, searchQuery)
+
+            if (!updatedCategory) {
+                return NextResponse.json(
+                    { error: '카테고리를 찾을 수 없습니다.' },
+                    { status: 404 }
+                )
+            }
+
+            return NextResponse.json({
+                success: true,
+                data: updatedCategory,
+            })
+        } catch (repoError) {
+            const message = repoError instanceof Error ? repoError.message : 'Unknown error'
+            if (message.includes('이미 존재')) {
+                return NextResponse.json({ error: message }, { status: 409 })
+            }
+            if (message.includes('기본 카테고리')) {
+                return NextResponse.json({ error: message }, { status: 403 })
+            }
+            throw repoError
+        }
+
+    } catch (error) {
+        console.error('Error updating category:', error)
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        return NextResponse.json(
+            { error: `Failed to update category: ${message}` },
+            { status: 500 }
+        )
+    }
+}
+
+/**
  * GET /api/categories/:id
  * 특정 카테고리 조회
  */
