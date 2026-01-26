@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Category } from '@/domain/entities/Category'
 import CategoryTabs from './CategoryTabs'
 import styles from './Header.module.css'
@@ -42,6 +43,9 @@ export default function Header({
                             onAddClick={onAddClick}
                         />
                     )}
+                    <Link href="/admin" className={styles.adminLink}>
+                        ⚙️ 관리
+                    </Link>
                 </nav>
             </div>
         </header>

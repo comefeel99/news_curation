@@ -19,7 +19,7 @@ export interface SearchModelExtensions {
     return_related_questions: boolean
     search_type_extension_limit: string
     search_domain_filter: string[]
-    search_recency_filter: 'day' | 'week' | 'month'
+    search_recency_filter: string
 }
 
 /**
@@ -94,7 +94,7 @@ export interface SearchApiResponse {
  * 검색 옵션
  */
 export interface SearchOptions {
-    recencyFilter?: 'day' | 'week' | 'month'
+    recencyFilter?: string
     domainFilter?: string[]
     isProduction?: boolean
 }
@@ -149,7 +149,7 @@ export class SearchApiClient {
     async searchNews(query: string, options: SearchOptions = {}, categoryInfo?: CategoryInfo): Promise<SearchResultArticle[]> {
         const startTime = Date.now()
         const {
-            recencyFilter = 'week',
+            recencyFilter = '1day',
             domainFilter = [],
             isProduction = false,
         } = options

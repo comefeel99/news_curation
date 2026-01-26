@@ -23,6 +23,7 @@ export default function ScheduleSettings() {
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
     const [customSchedule, setCustomSchedule] = useState('')
     const [isCustom, setIsCustom] = useState(false)
+    const [fetching, setFetching] = useState(false)
 
     useEffect(() => {
         fetchSettings()
@@ -72,6 +73,25 @@ export default function ScheduleSettings() {
             setMessage({ type: 'error', text: '설정 저장에 실패했습니다.' })
         } finally {
             setSaving(false)
+        }
+    }
+
+    const handleManualFetch = async () => {
+        setFetching(true)
+        setMessage(null)
+        try {
+            const response = await fetch('/api/news/fetch', { method: 'POST' })
+            const data = await response.json()
+
+            if (!response.ok) throw new Error(data.error || '수집 실패')
+
+            // number 타입인지 확인 후 출력
+            const count = typeof data.total?.saved === 'number' ? data.total.saved : 0
+            setMessage({ type: 'success', text: `수집 완료: ${count}건의 새로운 뉴스 저장` })
+        } catch (error) {
+            setMessage({ type: 'error', text: '수동 수집 중 오류가 발생했습니다.' })
+        } finally {
+            setFetching(false)
         }
     }
 
@@ -145,6 +165,22 @@ export default function ScheduleSettings() {
                         disabled={saving}
                     >
                         {saving ? '저장 중...' : '설정 저장'}
+                    </button>
+                </div>
+
+                <div className={styles.divider} />
+
+                <div className={styles.controlGroup}>
+                    <h4 className={styles.subTitle}>수동 수집</h4>
+                    <p className={styles.descriptionText}>
+                        설정된 주기와 상관없이 즉시 뉴스를 수집합니다.
+                    </p>
+                    <button
+                        className={styles.manualFetchBtn}
+                        onClick={handleManualFetch}
+                        disabled={fetching}
+                    >
+                        {fetching ? '수집 중...' : '지금 수집 실행'}
                     </button>
                 </div>
 
