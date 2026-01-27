@@ -7,6 +7,7 @@ import { NewsFetchService } from '@/application/services/NewsFetchService'
 import { AISummaryService } from '@/application/services/AISummaryService'
 import { GPTLogger } from '@/infrastructure/logging/GPTLogger'
 import { SearchApiLogger } from '@/infrastructure/logging/SearchApiLogger'
+import { SystemSettingRepository } from '@/infrastructure/repositories/SystemSettingRepository'
 import { initializeDatabase, getDatabase, isDatabaseInitialized } from '@/infrastructure/database/sqlite'
 
 /**
@@ -52,6 +53,7 @@ export async function POST() {
         const searchClient = new SearchApiClient(searchApiUrl, searchApiKey, promptId, searchApiLogger)
         const newsRepository = new NewsRepository(db)
         const categoryRepository = new CategoryRepository(db)
+        const systemSettingRepository = new SystemSettingRepository()
 
         // AI 요약 서비스 생성 (Summary LLM 설정이 있는 경우에만)
         let aiSummaryService: AISummaryService | null = null
@@ -63,7 +65,7 @@ export async function POST() {
             aiSummaryService = new AISummaryService(summaryUrl, summaryKey, summaryModel, gptLogger)
         }
 
-        const fetchService = new NewsFetchService(newsRepository, searchClient, aiSummaryService)
+        const fetchService = new NewsFetchService(newsRepository, searchClient, systemSettingRepository, aiSummaryService)
 
         // 모든 카테고리 조회
         const categories = categoryRepository.findAll()

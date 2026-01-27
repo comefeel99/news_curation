@@ -4,10 +4,11 @@ import { useState } from 'react'
 import FetchLogTable from '@/components/FetchLogTable'
 import SearchApiLogTable from '@/components/SearchApiLogTable'
 import ScheduleSettings from '@/components/ScheduleSettings'
+import SearchSettings from '@/components/SearchSettings'
 import CategoryManagement from '@/components/CategoryManagement'
 import styles from './page.module.css'
 
-type Tab = 'fetch-logs' | 'search-logs' | 'settings' | 'categories'
+type Tab = 'fetch-logs' | 'search-logs' | 'settings' | 'categories' | 'search-config'
 
 /**
  * 관리자 페이지
@@ -45,7 +46,13 @@ export default function AdminPage() {
                         className={`${styles.tab} ${activeTab === 'settings' ? styles.activeTab : ''}`}
                         onClick={() => setActiveTab('settings')}
                     >
-                        자동 수집 설정
+                        자동 수집 설정(스케줄)
+                    </button>
+                    <button
+                        className={`${styles.tab} ${activeTab === 'search-config' ? styles.activeTab : ''}`}
+                        onClick={() => setActiveTab('search-config')}
+                    >
+                        검색 필터 설정
                     </button>
                 </div>
 
@@ -53,6 +60,7 @@ export default function AdminPage() {
                 {activeTab === 'search-logs' && <SearchApiLogTable />}
                 {activeTab === 'settings' && <ScheduleSettings />}
                 {activeTab === 'categories' && <CategoryManagement />}
+                {activeTab === 'search-config' && <SearchSettings />}
             </main>
         </div>
     )

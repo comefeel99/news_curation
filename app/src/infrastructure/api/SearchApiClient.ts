@@ -20,6 +20,7 @@ export interface SearchModelExtensions {
     search_type_extension_limit: string
     search_domain_filter: string[]
     search_recency_filter: string
+    news_filter_off: boolean
 }
 
 /**
@@ -97,6 +98,8 @@ export interface SearchOptions {
     recencyFilter?: string
     domainFilter?: string[]
     isProduction?: boolean
+    newsFilterOff?: boolean
+    extensionLimit?: string
 }
 
 /**
@@ -152,6 +155,8 @@ export class SearchApiClient {
             recencyFilter = '1day',
             domainFilter = [],
             isProduction = false,
+            newsFilterOff = true,
+            extensionLimit = 'Complex',
         } = options
 
         const requestBody: SearchApiRequest = {
@@ -172,9 +177,10 @@ export class SearchApiClient {
                 return_citations: true,
                 return_images: false,
                 return_related_questions: false,
-                search_type_extension_limit: 'Complex',
+                search_type_extension_limit: extensionLimit,
                 search_domain_filter: domainFilter,
                 search_recency_filter: recencyFilter,
+                news_filter_off: newsFilterOff,
             },
         }
 

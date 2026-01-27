@@ -1,6 +1,7 @@
 import { NewsRepository } from '@/infrastructure/repositories/NewsRepository'
 import { SearchApiClient } from '@/infrastructure/api/SearchApiClient'
 import { AISummaryService } from '@/application/services/AISummaryService'
+import { SystemSettingRepository } from '@/infrastructure/repositories/SystemSettingRepository'
 import { createNews, validateNews, CreateNewsInput } from '@/domain/entities/News'
 import { Category } from '@/domain/entities/Category'
 
@@ -24,15 +25,18 @@ export interface FetchResult {
 export class NewsFetchService {
     private readonly repository: NewsRepository
     private readonly searchClient: SearchApiClient
+    private readonly systemSettingRepository: SystemSettingRepository
     private readonly aiSummaryService: AISummaryService | null
 
     constructor(
         repository: NewsRepository,
         searchClient: SearchApiClient,
+        systemSettingRepository: SystemSettingRepository,
         aiSummaryService: AISummaryService | null = null
     ) {
         this.repository = repository
         this.searchClient = searchClient
+        this.systemSettingRepository = systemSettingRepository
         this.aiSummaryService = aiSummaryService
     }
 
@@ -52,10 +56,20 @@ export class NewsFetchService {
             categoryName: category.name,
         }
 
+        // 시스템 설정 조회
+        const recencyFilter = this.systemSettingRepository.get('SEARCH_RECENCY_FILTER') || '1day'
+        const newsFilterOffText = this.systemSettingRepository.get('NEWS_FILTER_OFF') || 'true'
+        const newsFilterOff = newsFilterOffText === 'true'
+        const extensionLimit = this.systemSettingRepository.get('SEARCH_TYPE_EXTENSION_LIMIT') || 'Complex'
+
         // Search API에서 카테고리 검색 쿼리로 뉴스 검색
         const articles = await this.searchClient.searchNews(
             category.searchQuery,
-            {},
+            {
+                recencyFilter,
+                newsFilterOff,
+                extensionLimit,
+            },
             { id: category.id, name: category.name }
         )
         result.fetched = articles.length
@@ -89,7 +103,7 @@ export class NewsFetchService {
                 if (saved) {
                     result.saved++
 
-                    // AI 요약 생성 (snippet을 입력으로 사용하여 개선된 요약 생성)
+                    // AI 요약 생성
                     if (this.aiSummaryService) {
                         try {
                             const summary = await this.aiSummaryService.generateSummaryFromUrl(
@@ -97,8 +111,8 @@ export class NewsFetchService {
                                 news.url,
                                 news.source,
                                 news.id,
-                                article.snippet,  // snippet 전달
-                                undefined         // description (현재 미사용)
+                                article.snippet,
+                                undefined
                             )
                             if (summary) {
                                 this.repository.updateSummary(news.id, summary)
@@ -248,12 +262,11 @@ export class NewsFetchService {
  * NewsFetchService 인스턴스 생성 헬퍼
  */
 export function createNewsFetchService(): NewsFetchService {
-    // 순환 참조 방지를 위해 내부 require 사용 또는 의존성 주입 시 주의
-    // 여기서는 간단히 필요한 모듈을 가져옴 (상단 import가 이미 존재하면 그것 사용)
     const { getDatabase, initializeDatabase, isDatabaseInitialized } = require('@/infrastructure/database/sqlite')
     const { NewsRepository } = require('@/infrastructure/repositories/NewsRepository')
     const { SearchApiClient } = require('@/infrastructure/api/SearchApiClient')
     const { AISummaryService } = require('@/application/services/AISummaryService')
+    const { SystemSettingRepository } = require('@/infrastructure/repositories/SystemSettingRepository')
     const { GPTLogger } = require('@/infrastructure/logging/GPTLogger')
     const { SearchApiLogger } = require('@/infrastructure/logging/SearchApiLogger')
 
@@ -262,6 +275,7 @@ export function createNewsFetchService(): NewsFetchService {
     }
     const db = getDatabase()
     const newsRepository = new NewsRepository(db)
+    const systemSettingRepository = new SystemSettingRepository()
 
     // Search API 설정
     const searchApiUrl = process.env.SEARCH_LLM_URL
@@ -285,5 +299,5 @@ export function createNewsFetchService(): NewsFetchService {
         aiSummaryService = new AISummaryService(summaryUrl, summaryKey, summaryModel, gptLogger)
     }
 
-    return new NewsFetchService(newsRepository, searchClient, aiSummaryService)
+    return new NewsFetchService(newsRepository, searchClient, systemSettingRepository, aiSummaryService)
 }

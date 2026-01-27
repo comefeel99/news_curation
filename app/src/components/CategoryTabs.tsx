@@ -20,36 +20,47 @@ export default function CategoryTabs({
     onSelect,
     onAddClick
 }: CategoryTabsProps) {
+    const selectedCategory = categories.find(c => c.id === selectedId)
+    const currentName = selectedCategory ? selectedCategory.name : '전체'
+
     return (
-        <nav className={styles.tabs}>
-            {/* 전체 탭 */}
-            <button
-                className={`${styles.tab} ${selectedId === null ? styles.active : ''}`}
-                onClick={() => onSelect(null)}
-            >
-                전체
+        <div className={styles.container}>
+            <button className={styles.triggerButton}>
+                {currentName}
+                <span className={styles.triggerIcon}>▼</span>
             </button>
 
-            {/* 카테고리 탭들 */}
-            {categories.map((category) => (
+            <div className={styles.dropdown}>
+                {/* 전체 선택 */}
                 <button
-                    key={category.id}
-                    className={`${styles.tab} ${selectedId === category.id ? styles.active : ''} ${category.isDefault ? styles.default : ''}`}
-                    onClick={() => onSelect(category.id)}
-                    title={category.searchQuery}
+                    className={`${styles.dropdownItem} ${selectedId === null ? styles.active : ''}`}
+                    onClick={() => onSelect(null)}
                 >
-                    {category.name}
+                    전체
                 </button>
-            ))}
 
-            {/* 카테고리 추가 버튼 */}
-            <button
-                className={`${styles.tab} ${styles.addButton}`}
-                onClick={onAddClick}
-                title="카테고리 추가"
-            >
-                + 추가
-            </button>
-        </nav>
+                {/* 카테고리 목록 */}
+                {categories.map((category) => (
+                    <button
+                        key={category.id}
+                        className={`${styles.dropdownItem} ${selectedId === category.id ? styles.active : ''} ${category.isDefault ? styles.default : ''}`}
+                        onClick={() => onSelect(category.id)}
+                        title={category.searchQuery}
+                    >
+                        {category.name}
+                    </button>
+                ))}
+
+                <div className={styles.divider} />
+
+                {/* 카테고리 추가 */}
+                <button
+                    className={`${styles.dropdownItem} ${styles.addButton}`}
+                    onClick={onAddClick}
+                >
+                    + 카테고리 추가
+                </button>
+            </div>
+        </div>
     )
 }
