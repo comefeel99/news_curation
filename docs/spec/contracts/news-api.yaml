@@ -1,0 +1,59 @@
+openapi: 3.0.0
+info:
+  title: News Curation API
+  version: 1.0.0
+paths:
+  /api/news:
+    get:
+      summary: List news
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A paged array of news
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/News'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+  /api/news/fetch:
+    post:
+      summary: Trigger news fetch
+      responses:
+        '200':
+          description: Fetch results
+components:
+  schemas:
+    News:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        total:
+          type: integer

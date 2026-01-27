@@ -1,5 +1,7 @@
 # 뉴스 큐레이션 웹서비스
 
+> **Note**: 전체 프로젝트 문서는 루트 디렉토리의 [`README.md`](../README.md)와 [`docs/`](../docs) 폴더를 참고하세요.
+
 AI가 요약한 최신 과학/기술 뉴스를 빠르게 확인할 수 있는 웹 서비스입니다.
 
 ![News Curation](https://via.placeholder.com/800x400?text=News+Curation+Preview)
